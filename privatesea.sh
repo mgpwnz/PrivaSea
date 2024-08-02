@@ -5,7 +5,7 @@ do
 # Menu
 
 PS3='Select an action: '
-options=("Pre Install" "Create Account" "Create Account" "Logs" "Uninstall" "Exit")
+options=("Pre Install" "Create Account" "Install & RUN" "Logs" "Uninstall" "Exit")
 select opt in "${options[@]}"
                do
                    case $opt in                          
