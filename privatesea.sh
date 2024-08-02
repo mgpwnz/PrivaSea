@@ -5,7 +5,7 @@ do
 # Menu
 
 PS3='Select an action: '
-options=("Pre Install" "Create Account" "Install worker" "Logs" "Uninstall" "Exit")
+options=("Pre Install" "Create Account" "Create Account" "Logs" "Uninstall" "Exit")
 select opt in "${options[@]}"
                do
                    case $opt in                          
@@ -84,19 +84,18 @@ break
 ;;
 
 "Logs")
-docker logs -f worker-basic-eth-pred
+docker logs -f privasea*
 break
 ;;
 
 "Uninstall")
-if [ ! -d "$HOME/basic-coin-prediction-node" ]; then
+if [ ! -d "$HOME/PrivateSea" ]; then
     break
 fi
-read -r -p "Wipe all DATA? [y/N] " response
+read -r -p "Remove node? [y/N] " response
 case "$response" in
     [yY][eE][sS]|[yY]) 
-cd $HOME/basic-coin-prediction-node && docker compose down -v
-rm -rf $HOME/basic-coin-prediction-node $HOME/allora-chain
+docker compose -f $HOME/PrivateSea/docker-compose.yml down -v
         ;;
     *)
 	echo Canceled
