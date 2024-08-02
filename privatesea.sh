@@ -80,11 +80,12 @@ volumes:
 
 EOF
 docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
+docker logs -f privatesea-node-1 --tail 100
 break
 ;;
 
 "Logs")
-docker logs -f privasea*
+docker logs -f privatesea-node-1 --tail 100
 break
 ;;
 
