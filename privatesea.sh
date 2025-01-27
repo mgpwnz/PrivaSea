@@ -41,51 +41,44 @@ break
 
 "Create Account")
 # Pull
-docker pull privasea/node-client:v0.0.1
-sudo mkdir -p $HOME/PrivateSea/keys
+docker pull privasea/acceleration-node-beta:latest
+sudo mkdir -p $HOME/PrivateSea/config
 cd $HOME/PrivateSea
-docker run -it -v $HOME/PrivateSea/keys:/app/keys privasea/node-client:v0.0.1 account
+docker run -it -v $HOME/PrivateSea/config:/app/config privasea/acceleration-node-beta:latest ./node-calc new_keystore
 
 break
 ;;
 "Install & RUN")
-KEY_PATH=$(find $HOME/PrivateSea/keys/ -type f | head -n 1)
+KEY_PATH=$(find $HOME/PrivateSea/config/ -type f | head -n 1)
 if [ -z "$KEY_PATH" ]; then
   echo "Key not found!"
   exit 1
 fi
 KEY_NAME=$(basename $KEY_PATH)
+mv $HOME/PrivateSea/config/$KEY_NAME $HOME/PrivateSea/config/wallet_keystore
 read -p "Enter Password: " Password
 echo 'export Password='${Password}
-docker pull privasea/node-calc:v0.0.1
 tee $HOME/PrivateSea/docker-compose.yml > /dev/null <<EOF
 version: '3.8'
 
 services:
-  privasea:
-    image: privasea/node-calc:v0.0.1
-    ports:
-      - "8181:8181"
+  acceleration-node:
+    image: privasea/acceleration-node-beta:latest
+    container_name: acceleration-node
     environment:
-      HOST: "`wget -qO- eth0.me`:8181"
-      KEYSTORE: "$KEY_NAME"
-      KEYSTORE_PASSWORD: "${Password}"
+      - KEYSTORE_PASSWORD=${Password}
     volumes:
-      - $HOME/PrivateSea/keys:/app/config
-    restart: always
-
-
-volumes:
-  analog:
+      - $HOME/PrivateSea/config:/app/config
+    restart: unless-stopped
 
 EOF
 docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
-docker logs -f privatesea-node-1 --tail 100
+docker logs -f acceleration-node --tail 100
 break
 ;;
 
 "Logs")
-docker logs -f privatesea-node-1 --tail 100
+docker logs -f acceleration-node --tail 100
 break
 ;;
 
