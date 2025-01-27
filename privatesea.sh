@@ -3,15 +3,16 @@ while true
 do
 # Menu
 PS3='Select an action: '
-options=("Pre Install" "Create Account" "Install & RUN" "Logs" "Uninstall" "Exit")
+options=("Install Docker" "Create Account" "Install & RUN" "Logs" "Uninstall" "Exit")
 select opt in "${options[@]}"
 do
     case $opt in
-        "Pre Install")
+        "Install Docker")
             # Install Docker and Docker Compose
             touch $HOME/.bash_profile
             cd $HOME
             if ! command -v docker &> /dev/null; then
+                echo "Installing Docker..."
                 sudo apt update
                 sudo apt upgrade -y
                 sudo apt install curl apt-transport-https ca-certificates gnupg lsb-release -y
@@ -23,6 +24,7 @@ do
             fi
 
             if ! docker compose version &> /dev/null; then
+                echo "Installing Docker Compose..."
                 sudo apt install wget jq -y
                 docker_compose_version=$(wget -qO- https://api.github.com/repos/docker/compose/releases/latest | jq -r ".tag_name")
                 sudo wget -O /usr/bin/docker-compose "https://github.com/docker/compose/releases/download/${docker_compose_version}/docker-compose-$(uname -s)-$(uname -m)"
@@ -32,55 +34,82 @@ do
             break
             ;;
 
-		"Create Account")
-			# Pull and create account
-			if [ -d "$HOME/PrivateSea" ] && [ -f "$HOME/PrivateSea/config/wallet_keystore" ]; then
-				echo "Key already exists at $HOME/PrivateSea/config/wallet_keystore. No need to generate a new one."
-				break
-			fi
+        "Create Account")
+            # Pull the image and create an account
+            if [ -d "$HOME/PrivateSea" ] && [ -f "$HOME/PrivateSea/config/wallet_keystore" ]; then
+                echo "Key already exists at $HOME/PrivateSea/config/wallet_keystore. No need to generate a new one."
+                break
+            fi
 
-			docker pull privasea/acceleration-node-beta:latest
-			sudo mkdir -p $HOME/PrivateSea/config
-			cd $HOME/PrivateSea
-			docker run -it -v $HOME/PrivateSea/config:/app/config privasea/acceleration-node-beta:latest ./node-calc new_keystore
+            docker pull privasea/acceleration-node-beta:latest
+            sudo mkdir -p $HOME/PrivateSea/config
+            cd $HOME/PrivateSea
+            docker run -it -v $HOME/PrivateSea/config:/app/config privasea/acceleration-node-beta:latest ./node-calc new_keystore
 
-			KEY_PATH=$(find $HOME/PrivateSea/config/ -type f | head -n 1)
-			if [ -z "$KEY_PATH" ]; then
-				echo "Key not found! Please try again."
-			else
-				KEY_NAME=$(basename "$KEY_PATH")
-				mv "$HOME/PrivateSea/config/$KEY_NAME" "$HOME/PrivateSea/config/wallet_keystore"
-				echo "Account created successfully. Key stored as wallet_keystore."
-			fi
-			break
-			;;
+            KEY_PATH=$(find $HOME/PrivateSea/config/ -type f | head -n 1)
+            if [ -z "$KEY_PATH" ]; then
+                echo "Key not found! Please try again."
+            else
+                KEY_NAME=$(basename "$KEY_PATH")
+                mv "$HOME/PrivateSea/config/$KEY_NAME" "$HOME/PrivateSea/config/wallet_keystore"
+                echo "Account created successfully. Key stored as wallet_keystore."
+            fi
+            break
+            ;;
 
+        "Install & RUN")
+            if [ -f "$HOME/PrivateSea/docker-compose.yml" ]; then
+                echo "docker-compose.yml already exists. Checking container status..."
 
-		"Install & RUN")
-			if [ -f "$HOME/PrivateSea/docker-compose.yml" ]; then
-				echo "docker-compose.yml already exists. Checking container status..."
+                # Check if the container is running
+                if ! docker ps --filter "name=acceleration-node" --format "{{.Names}}" | grep -q "acceleration-node"; then
+                    echo "Container is not running. Starting the container..."
+                    docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
+                else
+                    echo "Container is already running."
+                fi
 
-				# Перевіряємо, чи контейнер запущений
-				if ! docker ps --filter "name=acceleration-node" --format "{{.Names}}" | grep -q "acceleration-node"; then
-					echo "Container is not running. Starting the container..."
-					docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
-				else
-					echo "Container is already running."
-				fi
+                echo "Checking logs for errors..."
+                if docker logs acceleration-node --tail 50 | grep -q "could not decrypt key with given password"; then
+                    echo "Incorrect password detected. Please update the password."
 
-				docker logs -f acceleration-node --tail 100
-				break
-			fi
+                    # Prompt for a new password
+                    while true; do
+                        read -p "Enter New Password: " NewPassword
+                        if [ -z "$NewPassword" ]; then
+                            echo "Password cannot be empty. Please try again."
+                        else
+                            break
+                        fi
+                    done
 
-			# Якщо файлу docker-compose.yml немає, створюємо його
-			read -p "Enter Password: " Password
-			if [ -z "$Password" ]; then
-				echo "Password cannot be empty. Please try again."
-				break
-			fi
-			echo "export Password=${Password}" >> $HOME/.bash_profile
-			source $HOME/.bash_profile
-tee $HOME/PrivateSea/docker-compose.yml > /dev/null <<EOF
+                    # Backup the docker-compose.yml file
+                    cp $HOME/PrivateSea/docker-compose.yml $HOME/PrivateSea/docker-compose.yml.bak
+
+                    # Update the password in docker-compose.yml
+                    sed -i "s/KEYSTORE_PASSWORD=.*/KEYSTORE_PASSWORD=${NewPassword}/" $HOME/PrivateSea/docker-compose.yml
+
+                    # Restart the container with the new password
+                    docker compose -f $HOME/PrivateSea/docker-compose.yml down
+                    docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
+                    echo "Password updated, and container restarted successfully."
+                else
+                    echo "No errors found in logs. Everything is working as expected."
+                fi
+
+                docker logs -f acceleration-node --tail 100
+                break
+            fi
+
+            # If docker-compose.yml is not found, create it
+            read -p "Enter Password: " Password
+            if [ -z "$Password" ]; then
+                echo "Password cannot be empty. Please try again."
+                break
+            fi
+            echo "export Password=${Password}" >> $HOME/.bash_profile
+            source $HOME/.bash_profile
+            tee $HOME/PrivateSea/docker-compose.yml > /dev/null <<EOF
 version: '3.8'
 
 services:
@@ -94,11 +123,10 @@ services:
     restart: unless-stopped
 
 EOF
-			docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
-			docker logs -f acceleration-node --tail 100
-			break
-			;;
-
+            docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
+            docker logs -f acceleration-node --tail 100
+            break
+            ;;
 
         "Logs")
             docker logs -f acceleration-node --tail 100
@@ -115,6 +143,7 @@ EOF
                 [yY][eE][sS]|[yY]) 
                     docker compose -f $HOME/PrivateSea/docker-compose.yml down -v
                     echo "Node removed successfully."
+                    echo "Please save the key located at $HOME/PrivateSea/config/wallet_keystore"
                     ;;
                 *)
                     echo "Canceled"
