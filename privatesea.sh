@@ -45,10 +45,6 @@ docker pull privasea/acceleration-node-beta:latest
 sudo mkdir -p $HOME/PrivateSea/config
 cd $HOME/PrivateSea
 docker run -it -v $HOME/PrivateSea/config:/app/config privasea/acceleration-node-beta:latest ./node-calc new_keystore
-
-break
-;;
-"Install & RUN")
 KEY_PATH=$(find $HOME/PrivateSea/config/ -type f | head -n 1)
 if [ -z "$KEY_PATH" ]; then
   echo "Key not found!"
@@ -56,6 +52,9 @@ if [ -z "$KEY_PATH" ]; then
 fi
 KEY_NAME=$(basename $KEY_PATH)
 mv $HOME/PrivateSea/config/$KEY_NAME $HOME/PrivateSea/config/wallet_keystore
+break
+;;
+"Install & RUN")
 read -p "Enter Password: " Password
 echo 'export Password='${Password}
 tee $HOME/PrivateSea/docker-compose.yml > /dev/null <<EOF
