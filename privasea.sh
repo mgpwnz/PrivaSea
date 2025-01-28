@@ -61,7 +61,7 @@ do
 if [ -f "$HOME/PrivateSea/docker-compose.yml" ]; then
     echo "docker-compose.yml already exists."
 
-    # Пропонувати змінити пароль
+    # Prompt for a new password
     while true; do
         read -p "Do you want to update the password? (yes/no): " UpdateChoice
         case $UpdateChoice in
@@ -79,10 +79,10 @@ if [ -f "$HOME/PrivateSea/docker-compose.yml" ]; then
                 cp $HOME/PrivateSea/docker-compose.yml $HOME/PrivateSea/docker-compose.yml.bak
                 echo "Backup created: docker-compose.yml.bak"
 
-                # Оновити пароль у файлі docker-compose.yml
+                #  Update the password in docker-compose.yml
                 sed -i "s|KEYSTORE_PASSWORD=.*|KEYSTORE_PASSWORD=${NewPassword}|" $HOME/PrivateSea/docker-compose.yml
 
-                # Перезапустити контейнер з новим паролем
+                # Restart the container with the new password
                 echo "Restarting the container with the updated password..."
                 docker compose -f $HOME/PrivateSea/docker-compose.yml down
                 docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
@@ -99,7 +99,7 @@ if [ -f "$HOME/PrivateSea/docker-compose.yml" ]; then
         esac
     done
 
-    # Перевірити статус контейнера
+    # Check if the container is running
     if ! docker ps --filter "name=acceleration-node" --format "{{.Names}}" | grep -q "acceleration-node"; then
         echo "Container is not running. Starting the container..."
         docker compose -f $HOME/PrivateSea/docker-compose.yml up -d
@@ -111,7 +111,7 @@ if [ -f "$HOME/PrivateSea/docker-compose.yml" ]; then
     docker logs -f acceleration-node --tail 100
 
 else
-    # Якщо файлу docker-compose.yml немає, створити новий
+    # If docker-compose.yml is not found, create it
     read -p "Enter Password: " Password
     if [ -z "$Password" ]; then
         echo "Password cannot be empty. Please try again."
